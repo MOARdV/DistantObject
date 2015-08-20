@@ -192,9 +192,22 @@ namespace DistantObject
             //ListChildren(sm.systemPrefab.rootBody, 0);
             //--- HACK--
 
+            //If Kerbin is parented to the Sun, set its SMA- otherwise iterate
+            //through celestial bodies to locate which is parented to the Sun
+            //and has Kerbin as a child. Set the highest parents SMA to kerbinSMA
             if(BodyFlare.kerbinSMA <= 0.0)
             {
-                BodyFlare.kerbinSMA = FlightGlobals.Bodies[1].orbit.semiMajorAxis;
+                if(FlightGlobals.Bodies[1].referenceBody == FlightGlobals.Bodies[0])
+                    BodyFlare.kerbinSMA = FlightGlobals.Bodies[1].orbit.semiMajorAxis;
+                else
+                {                    
+                    foreach(CelestialBody current in FlightGlobals.Bodies)
+                    {
+                        if(current != FlightGlobals.Bodies[0])
+                            if (current.referenceBody == FlightGlobals.Bodies[0] && current.HasChild(FlightGlobals.Bodies[1]))
+                                BodyFlare.kerbinSMA = current.orbit.semiMajorAxis;
+                    }
+                }
                 BodyFlare.kerbinRadius = FlightGlobals.Bodies[1].Radius;
             }
             bodyFlares.Clear();
