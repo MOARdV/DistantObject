@@ -30,13 +30,15 @@ namespace DistantObject
         public double distanceFromCamera;
         public double sizeInDegrees;
 
+        public CelestialBody starBody;
+
         public double relativeRadiusSquared;
         public double bodyRadiusSquared;
 
         public void Update(Vector3d camPos, float camFOV)
         {
             // Update Body Flare
-            Vector3d targetVectorToSun = FlightGlobals.Bodies[0].position - body.position;
+            Vector3d targetVectorToSun = starBody.position - body.position;
             Vector3d targetVectorToCam = camPos - body.position;
 
             double targetSunRelAngle = Vector3d.Angle(targetVectorToSun, targetVectorToCam);
@@ -294,6 +296,14 @@ namespace DistantObject
                     flareMesh.name = body.bodyName;
                     flareMesh.SetActive(true);
 
+                    //Star detection
+                    CelestialBody refStarBody;
+                    if (body.scaledBody.GetComponentsInChildren<SunShaderController>(true).Length > 0) { refStarBody = body.orbit.referenceBody; } else { refStarBody = body; }
+                    while (refStarBody.scaledBody.GetComponentsInChildren<SunShaderController>(true).Length <= 0)
+                    {
+                        refStarBody = refStarBody.orbit.referenceBody;
+                    }
+
                     MeshRenderer flareMR = flareMesh.GetComponentInChildren<MeshRenderer>();
                     // With KSP 1.0, putting these on layer 10 introduces 
                     // ghost flares that render for a while before fading away.
@@ -325,6 +335,7 @@ namespace DistantObject
                     bf.relativeRadiusSquared = Math.Pow(body.Radius / FlightGlobals.Bodies[1].Radius, 2.0);
                     bf.bodyRadiusSquared = body.Radius * body.Radius;
                     bf.bodyMesh.SetActive(DistantObjectSettings.DistantFlare.flaresEnabled);
+                    bf.starBody = refStarBody;
 
                     bodyFlares.Add(bf);
                 }
@@ -386,9 +397,9 @@ namespace DistantObject
         //--------------------------------------------------------------------
         // CheckDraw
         // Checks if the given mesh should be drawn.
-        private void CheckDraw(GameObject flareMesh, MeshRenderer flareMR, Vector3d position, CelestialBody referenceBody, Vector4 hslColor, double objRadius, FlareType flareType)
+        private void CheckDraw(GameObject flareMesh, MeshRenderer flareMR, Vector3d position, CelestialBody referenceBody, Vector4 hslColor, double objRadius, FlareType flareType, CelestialBody referenceStarBody)
         {
-            Vector3d targetVectorToSun = FlightGlobals.Bodies[0].position - position;
+            Vector3d targetVectorToSun = referenceStarBody.position - position;
             Vector3d targetVectorToRef = referenceBody.position - position;
             double targetRelAngle = Vector3d.Angle(targetVectorToSun, targetVectorToRef);
             double targetDist = Vector3d.Distance(position, camPos);
@@ -405,7 +416,7 @@ namespace DistantObject
             double targetRefSize = Math.Acos(Math.Sqrt(Math.Pow(targetRefDist, 2.0) - Math.Pow(referenceBody.Radius, 2.0)) / targetRefDist) * Mathf.Rad2Deg;
 
             bool inShadow = false;
-            if (referenceBody != FlightGlobals.Bodies[0] && targetRelAngle < targetRefSize)
+            if (referenceBody != referenceStarBody && targetRelAngle < targetRefSize)
             {
                 inShadow = true;
             }
@@ -837,7 +848,7 @@ namespace DistantObject
 
                         if (flare.bodyMesh.activeSelf)
                         {
-                            CheckDraw(flare.bodyMesh, flare.meshRenderer, flare.body.transform.position, flare.body.referenceBody, flare.hslColor, flare.sizeInDegrees, FlareType.Celestial);
+                            CheckDraw(flare.bodyMesh, flare.meshRenderer, flare.body.transform.position, flare.body.referenceBody, flare.hslColor, flare.sizeInDegrees, FlareType.Celestial, flare.starBody);
                         }
                     }
 #if SHOW_FIXEDUPDATE_TIMING
@@ -857,7 +868,7 @@ namespace DistantObject
 
                             if (vesselFlare.flareMesh.activeSelf)
                             {
-                                CheckDraw(vesselFlare.flareMesh, vesselFlare.meshRenderer, vesselFlare.flareMesh.transform.position, vesselFlare.referenceShip.mainBody, hslWhite, 5.0, (vesselFlare.referenceShip.vesselType == VesselType.Debris) ? FlareType.Debris : FlareType.Vessel);
+                                CheckDraw(vesselFlare.flareMesh, vesselFlare.meshRenderer, vesselFlare.flareMesh.transform.position, vesselFlare.referenceShip.mainBody, hslWhite, 5.0, (vesselFlare.referenceShip.vesselType == VesselType.Debris) ? FlareType.Debris : FlareType.Vessel, FlightGlobals.Bodies[0]);
                             }
                         }
                         catch
